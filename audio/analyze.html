@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Music Genre Classification</title>
+    <script src="https://unpkg.com/@tensorflow/tfjs@4.10.0/dist/tf.min.js"></script>
+</head>
+
+<body>
+    <input type="file" id="audioFile" accept="audio/*">
+    <button onclick="classify()">Classify Genre</button>
+    <p id="result"></p>
+
+    <script src="js/analyze.js"></script>
+</body>
+
+</html>
