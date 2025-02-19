@@ -93,28 +93,27 @@ function highlightWord(word) {
 /**
  * マイク入力レベルを表示するために Web Audio API を利用
  */
-function initAudioMeter() {
-    navigator.mediaDevices.getUserMedia({ audio: true })
-        .then(stream => {
-            // オーディオコンテキスト取得
-            audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            // オーディオソース取得
-            const source = audioContext.createMediaStreamSource(stream);
-            // オーディオコンテキストでアナライズ
-            analyser = audioContext.createAnalyser();
-            // FFT (Fast Fourier Transform) サイズを 256 に設定
-            analyser.fftSize = 256;
-            // MediaStreamSource ノードを AnalyserNode に接続
-            source.connect(analyser);
-            // 音声ストリームオブジェクト microphoneStream に保存
-            microphoneStream = stream;
-            
-            // 音声入力レベルアップデート
-            updateInputLevel();
-        })
-        .catch(error => {
-            console.error('Error accessing microphone for input level:', error);
-        });
+async function initAudioMeter() {
+    try {
+        // メディアストリーム取得
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        // オーディオコンテキストの作成
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        // MediaStream からオーディオソースノードを生成
+        const source = audioContext.createMediaStreamSource(stream);
+        // AnalyserNode を作成して FFT サイズを設定
+        analyser = audioContext.createAnalyser();
+        analyser.fftSize = 256;
+        // オーディオソースを AnalyserNode に接続
+        source.connect(analyser);
+        // ストリームオブジェクトを保持
+        microphoneStream = stream;
+
+        // 音声入力レベルのアップデート処理を開始
+        updateInputLevel();
+    } catch (error) {
+        console.error('Error accessing microphone for input level:', error);
+    }
 }
 
 /**
@@ -170,6 +169,9 @@ micToggleBtn.addEventListener('click', () => {
  */
 async function app() {
     displayConsole("Loading...");
+    // オーディオメーター
+    initAudioMeter();
+
     // SpeechCommands の作成（BROWSER_FFT はブラウザ内の FFT アルゴリズムを利用）
     recognizer = speechCommands.create('BROWSER_FFT');
     // モデルの読み込みまで待機
@@ -184,9 +186,6 @@ async function app() {
 
     // 音声認識処理
     predictWord(words);
-
-    // オーディオメーター
-    initAudioMeter();
 }
 
 // メインアプリ実行

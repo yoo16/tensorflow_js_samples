@@ -37,11 +37,12 @@ async function loadModel() {
  * @return {Promise<void>} streamの取得が完了したpromise
  */
 async function setupCamera() {
-    // Webカメラ有効
-    const stream = await navigator.mediaDevices.getUserMedia({
+    const config = {
         video: { width: videoWidth, height: videoHeight, facingMode: 'user' },
         audio: false,
-    });
+    }
+    // Webカメラ有効
+    const stream = await navigator.mediaDevices.getUserMedia(config);
     // video要素に映像を設定
     videoEl.srcObject = stream;
     await videoEl.play();

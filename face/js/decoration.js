@@ -275,8 +275,14 @@ function calculateNormalVector() {
     return quaternion;
 }
 
-// ウェブカメラを有効にする関数
-async function onWebcam() {
+/**
+ * Webカメラを有効化する
+ * - getUserMediaを使用してWebカメラの映像を取得
+ * - video要素に映像を設定
+ * - video要素を再生
+ * @return {Promise<HTMLVideoElement>} streamの取得が完了したpromise
+ */
+async function setupCamera() {
     const constraints = {
         video: {
             width: videoWidth,
@@ -287,16 +293,10 @@ async function onWebcam() {
     };
 
     try {
-        // ウェブカメラ有効
         const stream = await navigator.mediaDevices.getUserMedia(constraints);
         videoEl.srcObject = stream;
-
-        // メタデータの読み込みを待つ
-        return new Promise((resolve) => {
-            videoEl.onloadedmetadata = () => {
-                resolve(videoEl);
-            };
-        });
+        await videoEl.play();
+        return videoEl;
     } catch (error) {
         console.error(error);
     }
@@ -336,7 +336,7 @@ async function init() {
     createImageButtons();
     createPositionButtons();
     loadImages();
-    await onWebcam();
+    await setupCamera();
     await loadModels();
     render();
 }
