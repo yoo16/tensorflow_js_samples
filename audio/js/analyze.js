@@ -54,7 +54,7 @@ function computeMFCCs(audio, sampleRate, hopLength, nFFT, nMelFilters, nDCT) {
         // 対数パワースペクトル
         powerSpectrum = powerSpectrum.map(x => Math.log(x + 1e-8));
 
-        // 3. メルフィルタバンク適用（フィルタごとにエネルギーを算出）
+        // メルフィルタバンク適用（フィルタごとにエネルギーを算出）
         let melEnergies = [];
         for (let m = 0; m < nMelFilters; m++) {
             let sum = 0;
