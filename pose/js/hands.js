@@ -6,6 +6,7 @@ let detector;
 let currentSpokenNumber = 0;      // 直前に再生された数字（連続再生防止用）
 let isAudioPlaying = false;       // 音声が再生中かどうか
 let lastAudioPlayTime = 0;        // 最後に音声が再生された時間
+let lastNumber = 0;            // 最後に認識された指の本数
 const AUDIO_INTERVAL = 1500;      // 最低再生間隔（ミリ秒）
 
 // 手のランドマークの接続定義（MediaPipe Handsの仕様に基づく）
@@ -17,13 +18,24 @@ const fingers = [
     [0, 17, 18, 19, 20]  // 小指
 ];
 
+const selectVoiceActor = 2;
+
 // 音声ファイルのパス（手の本数に応じて変化）
 const audioFiles = {
-    1: "audio/voice_1_1.mp3",
-    2: "audio/voice_1_2.mp3",
-    3: "audio/voice_1_3.mp3",
-    4: "audio/voice_1_4.mp3",
-    5: "audio/voice_1_5.mp3",
+    1: {
+        1: "audio/voice_1_1.mp3",
+        2: "audio/voice_1_2.mp3",
+        3: "audio/voice_1_3.mp3",
+        4: "audio/voice_1_4.mp3",
+        5: "audio/voice_1_5.mp3",
+    },
+    2: {
+        1: "audio/voice_2_1.mp3",
+        2: "audio/voice_2_2.mp3",
+        3: "audio/voice_2_3.mp3",
+        4: "audio/voice_2_4.mp3",
+        5: "audio/voice_2_5.mp3",
+    },
 }
 
 /**
@@ -140,26 +152,35 @@ async function detectHands() {
         drawHand(keypoints);
         const count = countExtendedFingers(keypoints);
 
+        const xRate = canvas.width / video.videoWidth
+        const yRate = canvas.height / video.videoHeight
         // 手首位置に数字を描画
-        const x = keypoints[0].x * canvas.width / video.videoWidth;
-        const y = keypoints[0].y * canvas.height / video.videoHeight;
-        ctx.font = 'bold 48px Arial';
-        ctx.fillStyle = 'yellow';
-        ctx.fillText(count.toString(), x - 10, y - 10);
+        const x = keypoints[0].x * xRate;
+        const y = keypoints[0].y * yRate;
+
+        if (count > 0 && count <= 5) {
+            ctx.fillStyle = 'white';
+            ctx.font = 'bold 96px Arial';
+            // 指の一番高い位置を取得
+            const maxY = Math.min(
+                keypoints[4].y * yRate, // 親指
+                keypoints[8].y * yRate,  // 人差し指
+                keypoints[12].y * yRate, // 中指
+                keypoints[16].y * yRate, // 薬指
+                keypoints[20].y * yRate  // 小指
+            );
+            ctx.fillText(count.toString(), x, maxY);
+        }
     });
 
     requestAnimationFrame(detectHands);
 }
 function playNumberAudio(fingerCount) {
     const now = Date.now();
-
-    if (
-        audioFiles[fingerCount] &&             // 該当音声が存在
-        !isAudioPlaying &&                     // 再生中でない
-        fingerCount !== currentSpokenNumber && // 前回と異なる
-        now - lastAudioPlayTime > AUDIO_INTERVAL
-    ) {
-        const audio = new Audio(audioFiles[fingerCount]);
+    const audioFile = audioFiles[selectVoiceActor][fingerCount];
+    console.log(`指の本数: ${fingerCount}, 音声ファイル: ${audioFile}`);
+    if (!isAudioPlaying && audioFile) {
+        const audio = new Audio(audioFile);
         isAudioPlaying = true;
         currentSpokenNumber = fingerCount;
         lastAudioPlayTime = now;
