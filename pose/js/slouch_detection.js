@@ -27,7 +27,6 @@ let isAudioEnabled = true; // 初期状態：音声ON
 const sleepyAudio = new Audio(audioFile);
 
 // 骨格接続定義
-// 顔を除いた骨格ライン用
 const keypointPairs = [
     [5, 6],             // shoulders
     [5, 7], [7, 9],     // left arm
@@ -94,7 +93,6 @@ function drawKeypoints(keypoints) {
     });
 }
 
-
 /**
  * 骨格を描画
  * @param {Array} keypoints - 検出されたキーポイントの配列
@@ -123,45 +121,68 @@ function drawSkeleton(keypoints) {
  * 姿勢結果を表示 
  * @param {*} isHeadDroping 
  */
-function showPostureResult(isHeadDroping) {
+function updateMessage(text, bgClass, textClass) {
+    messageDisplay.textContent = text;
+
+    // すべての背景・テキストカラークラスをリセット
+    messageDisplay.classList.remove(
+        'bg-red-300', 'bg-red-500', 'bg-orange-300',
+        'text-red-800', 'text-white', 'text-orange-800'
+    );
+
+    if (bgClass) messageDisplay.classList.add(bgClass);
+    if (textClass) messageDisplay.classList.add(textClass);
+}
+
+/**
+ * 音声再生
+ * @param {*} now 
+ */
+function playAudio(now) {
+    if (isAudioEnabled && !isAudioPlaying && now - lastAudioPlayTime > AUDIO_INTERVAL) {
+        sleepyAudio.play();
+        isAudioPlaying = true;
+        lastAudioPlayTime = now;
+    }
+}
+
+/**
+ * 音声停止
+ */
+function stopAudio() {
+    if (isAudioPlaying) {
+        sleepyAudio.pause();
+        sleepyAudio.currentTime = 0;
+        isAudioPlaying = false;
+    }
+}
+
+/**
+ * 姿勢結果を表示
+ * - 悪い姿勢と判断された場合は音声を再生
+ * - 前傾角度が10秒以上続いた場合は悪い姿勢
+ * @param {*} isHeadDropping 
+ */
+function showPostureResult(isHeadDropping) {
     const now = Date.now();
+    // 前傾角度検出で悪い姿勢と判断された場合
+    if (isHeadDropping) {
+        // 開始時間を更新
+        if (!badPostureStart) badPostureStart = now;
 
-    if (isHeadDroping) {
-        if (!badPostureStart) {
-            badPostureStart = now; // 初回検出
-        }
+        // 開始時間を記録
         const duration = now - badPostureStart;
-
+        // 10秒以上続いている場合は悪い姿勢と判断
         if (duration >= BAD_POSTURE_THRESHOLD) {
-            messageDisplay.textContent = '居眠り注意！';
-            messageDisplay.classList.add('bg-red-500');
-            messageDisplay.classList.add('text-white');
-
-            // 音声再生条件：
-            // - 再生中でない
-            // - 前回再生から10秒以上経過
-            if (isAudioEnabled && !isAudioPlaying && now - lastAudioPlayTime > AUDIO_INTERVAL) {
-                sleepyAudio.play();
-                isAudioPlaying = true;
-                lastAudioPlayTime = now;
-            }
+            updateMessage('姿勢わるくない？', 'bg-red-500', 'text-white');
+            playAudio(now);
         } else {
-            messageDisplay.textContent = 'うつむき';
-            messageDisplay.classList.add('bg-orange-300');
-            messageDisplay.classList.add('text-orange-800');
+            updateMessage('うつむき', 'bg-orange-300', 'text-orange-800');
         }
     } else {
         badPostureStart = null;
-        messageDisplay.textContent = '良好';
-        messageDisplay.classList.remove('bg-red-300', 'bg-red-500', 'bg-orange-300');
-        messageDisplay.classList.remove('text-red-800', 'text-white', 'text-orange-800');
-
-        // 姿勢が戻ったときは音声を止めて状態をリセット
-        if (isAudioPlaying) {
-            sleepyAudio.pause();
-            sleepyAudio.currentTime = 0;
-            isAudioPlaying = false;
-        }
+        updateMessage('良好');
+        stopAudio();
     }
 }
 
@@ -188,19 +209,22 @@ function isHeadDroping(keypoints) {
  * 姿勢を検出し、描画
  */
 async function detectPose() {
+    // キャンバスクリア
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+    // ポーズ検出
     const poses = await detector.estimatePoses(video);
-
     if (poses.length > 0) {
         const keypoints = poses[0].keypoints;
-
+        // キーポイントの描画
         drawKeypoints(keypoints);
+        // 骨格の描画
         drawSkeleton(keypoints);
-
+        // ポーズの結果表示
         const headDroping = isHeadDroping(keypoints);
         showPostureResult(headDroping)
     }
+    // フレーム更新
     requestAnimationFrame(detectPose);
 }
 
