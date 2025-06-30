@@ -3,6 +3,28 @@ const canvas = document.getElementById('outputCanvas');
 const ctx = canvas.getContext('2d');
 
 let detector;
+let currentSpokenNumber = 0;      // 直前に再生された数字（連続再生防止用）
+let isAudioPlaying = false;       // 音声が再生中かどうか
+let lastAudioPlayTime = 0;        // 最後に音声が再生された時間
+const AUDIO_INTERVAL = 1500;      // 最低再生間隔（ミリ秒）
+
+// 手のランドマークの接続定義（MediaPipe Handsの仕様に基づく）
+const fingers = [
+    [0, 1, 2, 3, 4],     // 親指
+    [0, 5, 6, 7, 8],     // 人差し指
+    [0, 9, 10, 11, 12],  // 中指
+    [0, 13, 14, 15, 16], // 薬指
+    [0, 17, 18, 19, 20]  // 小指
+];
+
+// 音声ファイルのパス（手の本数に応じて変化）
+const audioFiles = {
+    1: "audio/voice_1_1.mp3",
+    2: "audio/voice_1_2.mp3",
+    3: "audio/voice_1_3.mp3",
+    4: "audio/voice_1_4.mp3",
+    5: "audio/voice_1_5.mp3",
+}
 
 /**
  * Webカメラのセットアップ
@@ -32,13 +54,6 @@ async function setupModel() {
  * 手のランドマークと骨格を描画
  */
 function drawHand(keypoints) {
-    const fingers = [
-        [0, 1, 2, 3, 4],     // 親指
-        [0, 5, 6, 7, 8],     // 人差し指
-        [0, 9, 10, 11, 12],  // 中指
-        [0, 13, 14, 15, 16], // 薬指
-        [0, 17, 18, 19, 20]  // 小指
-    ];
 
     // 骨格ライン
     fingers.forEach(finger => {
@@ -134,6 +149,29 @@ async function detectHands() {
     });
 
     requestAnimationFrame(detectHands);
+}
+function playNumberAudio(fingerCount) {
+    const now = Date.now();
+
+    if (
+        audioFiles[fingerCount] &&             // 該当音声が存在
+        !isAudioPlaying &&                     // 再生中でない
+        fingerCount !== currentSpokenNumber && // 前回と異なる
+        now - lastAudioPlayTime > AUDIO_INTERVAL
+    ) {
+        const audio = new Audio(audioFiles[fingerCount]);
+        isAudioPlaying = true;
+        currentSpokenNumber = fingerCount;
+        lastAudioPlayTime = now;
+
+        audio.play().catch(err => {
+            console.error("音声再生失敗:", err);
+        });
+
+        audio.onended = () => {
+            isAudioPlaying = false;
+        };
+    }
 }
 
 /**
