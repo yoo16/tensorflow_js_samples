@@ -6,9 +6,25 @@ const ctx = canvas.getContext('2d');
 
 // 検出器の初期化
 let detector;
+// フレームカウント
 let frameCount = 0;
+// 姿勢が悪いと判断された時間
 let badPostureStart = null;
+// 音声ファイルのパス
+let audioFile = "audio/voice_1_badpose.mp3"
+// 音声再生中かどうかのフラグ
+let isAudioPlaying = false;
+// 最後に音声を再生した時間
+let lastAudioPlayTime = 0;
+let faceResults = [];
+// 姿勢が悪いと判断する閾値（10秒）
 const BAD_POSTURE_THRESHOLD = 10 * 1000;
+// 音声再生間隔（10秒）
+const AUDIO_INTERVAL = 10 * 1000;
+// 音声の初期状態
+let isAudioEnabled = true; // 初期状態：音声ON
+// 音声ファイルの読み込み
+const sleepyAudio = new Audio(audioFile);
 
 // 骨格接続定義
 // 顔を除いた骨格ライン用
@@ -22,10 +38,39 @@ const keypointPairs = [
     [12, 14], [14, 16]  // right leg
 ];
 
+/**
+ * 音声ファイル読み込み完了時の処理
+ * - 再生中でなければ再生
+ */
+sleepyAudio.onended = () => {
+    isAudioPlaying = false;
+};
+
+// ボタンの表示を更新
+function updateAudioButtonLabel() {
+    const btn = document.getElementById("toggle-audio");
+    btn.textContent = isAudioEnabled ? "🔊 音声ON" : "🔇 音声OFF";
+}
+
+/**
+ * カメラをセットアップ
+ * - カメラのストリームを取得し、ビデオ要素に設定
+ */
 async function setupCamera() {
     const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } });
     video.srcObject = stream;
     await video.play();
+}
+
+/**
+ * Pose Detection モデルをセットアップ
+ */
+async function setupModel() {
+    const model = poseDetection.SupportedModels.MoveNet;
+    detector = await poseDetection.createDetector(model, {
+        modelType: poseDetection.movenet.modelType.SINGLEPOSE_THUNDER,
+    });
+    messageDisplay.textContent = 'Pose Detection モデルがロードされました。';
 }
 
 /**
@@ -83,7 +128,7 @@ function showPostureResult(isHeadDroping) {
 
     if (isHeadDroping) {
         if (!badPostureStart) {
-            badPostureStart = now; // 初めて猫背を検出
+            badPostureStart = now; // 初回検出
         }
         const duration = now - badPostureStart;
 
@@ -91,16 +136,32 @@ function showPostureResult(isHeadDroping) {
             messageDisplay.textContent = '居眠り注意！';
             messageDisplay.classList.add('bg-red-500');
             messageDisplay.classList.add('text-white');
+
+            // 音声再生条件：
+            // - 再生中でない
+            // - 前回再生から10秒以上経過
+            if (isAudioEnabled && !isAudioPlaying && now - lastAudioPlayTime > AUDIO_INTERVAL) {
+                sleepyAudio.play();
+                isAudioPlaying = true;
+                lastAudioPlayTime = now;
+            }
         } else {
             messageDisplay.textContent = 'うつむき';
             messageDisplay.classList.add('bg-orange-300');
             messageDisplay.classList.add('text-orange-800');
         }
     } else {
-        badPostureStart = null; // 猫背解除
+        badPostureStart = null;
         messageDisplay.textContent = '良好';
-        messageDisplay.classList.remove('bg-red-300', 'bg-red-500');
-        messageDisplay.classList.remove('text-red-800', 'text-white');
+        messageDisplay.classList.remove('bg-red-300', 'bg-red-500', 'bg-orange-300');
+        messageDisplay.classList.remove('text-red-800', 'text-white', 'text-orange-800');
+
+        // 姿勢が戻ったときは音声を止めて状態をリセット
+        if (isAudioPlaying) {
+            sleepyAudio.pause();
+            sleepyAudio.currentTime = 0;
+            isAudioPlaying = false;
+        }
     }
 }
 
@@ -124,17 +185,6 @@ function isHeadDroping(keypoints) {
 }
 
 /**
- * Pose Detection モデルをセットアップ
- */
-async function setupModel() {
-    const model = poseDetection.SupportedModels.MoveNet;
-    detector = await poseDetection.createDetector(model, {
-        modelType: poseDetection.movenet.modelType.SINGLEPOSE_THUNDER,
-    });
-    messageDisplay.textContent = 'Pose Detection モデルがロードされました。';
-}
-
-/**
  * 姿勢を検出し、描画
  */
 async function detectPose() {
@@ -154,6 +204,19 @@ async function detectPose() {
     requestAnimationFrame(detectPose);
 }
 
+// ボタンイベントリスナーを設定
+document.addEventListener("DOMContentLoaded", () => {
+    const toggleBtn = document.getElementById("toggle-audio");
+    toggleBtn.addEventListener("click", () => {
+        isAudioEnabled = !isAudioEnabled;
+        updateAudioButtonLabel();
+    });
+    updateAudioButtonLabel();
+});
+
+/**
+ * メインアプリケーションの初期化
+ */
 async function app() {
     await setupCamera();
     await setupModel();
