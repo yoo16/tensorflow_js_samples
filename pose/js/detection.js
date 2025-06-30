@@ -5,18 +5,30 @@ const ctx = canvas.getContext('2d');
 let detector;
 
 // 接続されるキーポイントのインデックスペア
+// 顔以外の骨格のみ（線で結ぶ部位）
 const keypointPairs = [
-    // 頭から腕
-    [0, 1], [1, 2], [2, 3], [3, 4],
-    // 腕のペア
-    [5, 6], [6, 7], [7, 8],
-    // 胴体
-    [5, 11], [6, 12],
-    // 左足
-    [11, 12], [11, 13], [13, 15],
-    // 右足
-    [12, 14], [14, 16]
+  [5, 6],             // 肩
+  [5, 7], [7, 9],     // 左腕 → 肘 → 手首
+  [6, 8], [8, 10],    // 右腕 → 肘 → 手首
+  [5, 11], [6, 12],   // 肩 → 腰
+  [11, 12],           // 腰
+  [11, 13], [13, 15], // 左脚 → 膝 → 足首
+  [12, 14], [14, 16], // 右脚 → 膝 → 足首
 ];
+
+
+/**
+ * Pose Detection モデルのロード
+ * - MoveNet (SINGLEPOSE_THUNDER) を使用
+ * - createDetector を使用して検出器を生成
+ */
+async function setupModel() {
+    // Pose Detection モデルのロード
+    const model = poseDetection.SupportedModels.MoveNet;
+    detector = await poseDetection.createDetector(model, {
+        modelType: poseDetection.movenet.modelType.SINGLEPOSE_THUNDER,
+    });
+}
 
 // Webカメラのセットアップ
 async function setupCamera() {
@@ -33,14 +45,17 @@ async function setupCamera() {
  * @param {PoseLandmark[]} keypoints PoseLandmark 配列
  */
 function drawKeypoints(keypoints) {
-    keypoints.forEach(point => {
+    // 顔に対応するインデックスのみ（鼻・目・耳）
+    const faceIndices = [0, 1, 2, 3, 4];
+
+    faceIndices.forEach(index => {
+        const point = keypoints[index];
         if (point.score > 0.5) {
-            // 座標変換
             const x = point.x * canvas.width / video.videoWidth;
             const y = point.y * canvas.height / video.videoHeight;
-            // 描画
+
             ctx.beginPath();
-            ctx.arc(x, y, 2, 0, 2 * Math.PI);
+            ctx.arc(x, y, 3, 0, 2 * Math.PI);
             ctx.fillStyle = 'white';
             ctx.fill();
         }
@@ -53,38 +68,21 @@ function drawKeypoints(keypoints) {
  */
 function drawSkeleton(keypoints) {
     keypointPairs.forEach(([start, end]) => {
-        // 開始座標
         const p1 = keypoints[start];
-        // 終了座標
         const p2 = keypoints[end];
-        // スコアが 0.3  オーバーの場合
         if (p1.score > 0.3 && p2.score > 0.3) {
             const x1 = p1.x * canvas.width / video.videoWidth;
             const y1 = p1.y * canvas.height / video.videoHeight;
             const x2 = p2.x * canvas.width / video.videoWidth;
             const y2 = p2.y * canvas.height / video.videoHeight;
 
-            // 骨格を描画
             ctx.beginPath();
             ctx.moveTo(x1, y1);
             ctx.lineTo(x2, y2);
             ctx.strokeStyle = 'red';
-            ctx.lineWidth = 1;
+            ctx.lineWidth = 2;
             ctx.stroke();
         }
-    });
-}
-
-/**
- * Pose Detection モデルのロード
- * - MoveNet (SINGLEPOSE_THUNDER) を使用
- * - createDetector を使用して検出器を生成
- */
-async function setupModel() {
-    // Pose Detection モデルのロード
-    const model = poseDetection.SupportedModels.MoveNet;
-    detector = await poseDetection.createDetector(model, {
-        modelType: poseDetection.movenet.modelType.SINGLEPOSE_THUNDER,
     });
 }
 

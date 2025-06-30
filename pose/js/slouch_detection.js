@@ -7,14 +7,19 @@ const ctx = canvas.getContext('2d');
 // 検出器の初期化
 let detector;
 let frameCount = 0;
+let badPostureStart = null;
+const BAD_POSTURE_THRESHOLD = 10 * 1000;
 
 // 骨格接続定義
+// 顔を除いた骨格ライン用
 const keypointPairs = [
-    [0, 1], [1, 2], [2, 3], [3, 4],
-    [5, 6], [6, 7], [7, 8],
-    [5, 11], [6, 12],
-    [11, 12], [11, 13], [13, 15],
-    [12, 14], [14, 16]
+    [5, 6],             // shoulders
+    [5, 7], [7, 9],     // left arm
+    [6, 8], [8, 10],    // right arm
+    [5, 11], [6, 12],   // shoulders → hips
+    [11, 12],           // hips
+    [11, 13], [13, 15], // left leg
+    [12, 14], [14, 16]  // right leg
 ];
 
 async function setupCamera() {
@@ -28,7 +33,11 @@ async function setupCamera() {
  * @param {*} keypoints 
  */
 function drawKeypoints(keypoints) {
-    keypoints.forEach(point => {
+    // 顔に対応するインデックス: nose(0), eyes(1,2), ears(3,4)
+    const faceIndices = [0, 1, 2, 3, 4];
+
+    faceIndices.forEach(index => {
+        const point = keypoints[index];
         if (point.score > 0.5) {
             const x = point.x * canvas.width / video.videoWidth;
             const y = point.y * canvas.height / video.videoHeight;
@@ -39,6 +48,7 @@ function drawKeypoints(keypoints) {
         }
     });
 }
+
 
 /**
  * 骨格を描画
@@ -69,13 +79,28 @@ function drawSkeleton(keypoints) {
  * @param {*} isHeadDroping 
  */
 function showPostureResult(isHeadDroping) {
-    messageDisplay.textContent = isHeadDroping ? '猫背' : '良好';
+    const now = Date.now();
+
     if (isHeadDroping) {
-        messageDisplay.classList.add('bg-red-300');
-        messageDisplay.classList.add('text-red-800');
+        if (!badPostureStart) {
+            badPostureStart = now; // 初めて猫背を検出
+        }
+        const duration = now - badPostureStart;
+
+        if (duration >= BAD_POSTURE_THRESHOLD) {
+            messageDisplay.textContent = '居眠り注意！';
+            messageDisplay.classList.add('bg-red-500');
+            messageDisplay.classList.add('text-white');
+        } else {
+            messageDisplay.textContent = 'うつむき';
+            messageDisplay.classList.add('bg-orange-300');
+            messageDisplay.classList.add('text-orange-800');
+        }
     } else {
-        messageDisplay.classList.remove('bg-red-300');
-        messageDisplay.classList.remove('text-red-800');
+        badPostureStart = null; // 猫背解除
+        messageDisplay.textContent = '良好';
+        messageDisplay.classList.remove('bg-red-300', 'bg-red-500');
+        messageDisplay.classList.remove('text-red-800', 'text-white');
     }
 }
 
