@@ -66,6 +66,9 @@ async function setupModel() {
  * 手のランドマークと骨格を描画
  */
 function drawHand(keypoints) {
+    // チェックボックスで骨格表示のオンオフを制御
+    const showSkeleton = document.getElementById('toggleSkeleton').checked;
+    if (!showSkeleton) return;
 
     // 骨格ライン
     fingers.forEach(finger => {
@@ -102,7 +105,7 @@ function drawHand(keypoints) {
 function countExtendedFingers(keypoints) {
     let count = 0;
 
-    // 親指（角度で判定　
+    // 親指（角度で判定）
     if (isThumbExtended(keypoints)) count++;
 
     // 他の指（tipが中間関節より上）

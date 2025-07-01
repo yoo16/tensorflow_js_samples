@@ -181,7 +181,7 @@ function showPostureResult(isHeadDropping) {
         }
     } else {
         badPostureStart = null;
-        updateMessage('良好');
+        updateMessage('OK!', 'bg-red-300', 'text-red-800');
         stopAudio();
     }
 }

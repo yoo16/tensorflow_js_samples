@@ -18,16 +18,23 @@
 
 <body class="bg-gray-100">
 
-    <main class="flex flex-col items-center justify-center min-h-screen">
-        <div class="relative flex justify-center items-center">
-            <!-- カメラ映像 -->
-            <video id="webcam" class="w-[800px] h-[500px] aspect-video object-cover rounded-lg shadow-lg pointer-events-none"
-                autoplay playsinline muted></video>
+    <main class="flex flex-col items-center justify-center">
+        <!-- チェックボックス -->
+        <div class="my-4">
+            <label class="inline-flex items-center text-gray-800 text-sm">
+                <input type="checkbox" id="toggleSkeleton" class="form-checkbox mr-2" checked>
+                骨格表示
+            </label>
+        </div>
 
-            <!-- 検出結果Canvas（videoと重ねる） -->
+        <div class="relative flex justify-center items-center">
+            <video id="webcam"
+                class="w-[800px] h-[500px] aspect-video object-cover rounded-lg shadow-lg pointer-events-none" autoplay
+                playsinline muted></video>
             <canvas id="outputCanvas" class="absolute top-0 left-0 w-[800px] h-[500px] pointer-events-none"></canvas>
         </div>
     </main>
+
 
     <!-- スクリプト -->
     <script type="module" src="js/hands.js"></script>
