@@ -1,102 +1,98 @@
-const videoUpload = document.getElementById('video-upload');
 const video = document.getElementById('video');
-const canvas = document.getElementById('output');
+const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
-const defaultWidth = 640;
-const defaultHeight = 480;
 
-// 初期値はデフォルト、後で動画の実際のサイズに合わせる
-canvas.width = defaultWidth;
-canvas.height = defaultHeight;
+const statusElement = document.getElementById('status');
+const fileInput = document.getElementById('fileInput');
 
-// 検出器
+statusElement.textContent = 'モデル読み込み中...';
+fileInput.disabled = true;
+
 let detector;
-// 検出器の設定
-const detectorConfig = {
-    modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING
-};
+let modelReady = false; // モデル読み込み状態
 
-/**
- * MoveNet の検出器をロード
- * @return {Promise<PoseDetector>} 検出器の生成が完了したpromise
- */
-async function createDetector() {
-    // MoveNet の検出器をロード
+async function loadModel() {
+    await tf.setBackend('webgl');
+    await tf.ready();
+
     detector = await poseDetection.createDetector(
         poseDetection.SupportedModels.MoveNet,
-        detectorConfig
+        {
+            // modelType: poseDetection.movenet.modelType.MULTIPOSE_THUNDER
+            modelType: poseDetection.movenet.modelType.SINGLEPOSE_THUNDER,
+        }
     );
+
+    modelReady = true;
+    console.log("モデル読み込み完了");
 }
 
-/**
- * 毎フレーム動画のポーズ検出を実行
- * - 動画が停止している場合はループ
- * - 動画のサイズが 0 でないか確認
- * - ポーズ検出
- * - 検出結果を描画
- * - requestAnimationFrame で次フレームの呼び出し
- */
-async function detectPose() {
-    // 動画が停止している場合はループ
+function drawKeypoints(keypoints) {
+    for (const keypoint of keypoints) {
+        if (keypoint.score > 0.4) {
+            ctx.beginPath();
+            ctx.arc(keypoint.x, keypoint.y, 5, 0, 2 * Math.PI);
+            ctx.fillStyle = 'red';
+            ctx.fill();
+        }
+    }
+}
+
+async function render() {
     if (video.paused || video.ended) {
-        requestAnimationFrame(detectPose);
-        return;
-    }
-    // 推論前に動画のサイズが 0 でないか確認
-    if (video.videoWidth === 0 || video.videoHeight === 0) {
-        requestAnimationFrame(detectPose);
+        requestAnimationFrame(render);
         return;
     }
 
-    // ポーズ検出
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
     const poses = await detector.estimatePoses(video);
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    if (poses.length > 0) {
-        const keypoints = poses[0].keypoints;
-        keypoints.forEach(point => {
-            if (point.score > 0.5) {
-                ctx.beginPath();
-                ctx.arc(point.x, point.y, 5, 0, 2 * Math.PI);
-                ctx.fillStyle = 'red';
-                ctx.fill();
-            }
-        });
+    for (const pose of poses) {
+        drawKeypoints(pose.keypoints);
     }
-    requestAnimationFrame(detectPose);
+
+    requestAnimationFrame(render);
 }
 
-
-// 動画ファイルがアップロードされたら video 要素に設定
-videoUpload.addEventListener('change', (e) => {
-    const file = e.target.files[0];
+// ユーザーが動画ファイルを選択したときの処理
+document.getElementById('fileInput').addEventListener('change', (event) => {
+    const file = event.target.files[0];
     if (file) {
-        const fileURL = URL.createObjectURL(file);
-        video.src = fileURL;
-        video.load();
-        // 動画のメタデータが読み込まれるのを待つ
-        video.onloadedmetadata = () => {
-            // 動画の実際の解像度に合わせる
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            console.log("onloadedmetadata");
-            video.play();
+        const url = URL.createObjectURL(file);
+        video.src = url;
+
+        // モデルが読み込まれてから再生
+        const waitForModel = async () => {
+            while (!modelReady) {
+                await new Promise(resolve => setTimeout(resolve, 100));
+            }
+
+            // 動画読み込み後、サイズをキャンバスに反映
+            video.addEventListener('loadeddata', () => {
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+
+                video.play();
+            });
+            video.load();
         };
+        waitForModel();
     }
 });
 
-// 動画が再生されたら検出を開始
-video.addEventListener('play', () => {
-    detectPose();
-});
 
-/**
- * メインのポーズ検出アプリケーション
- *
- * - MoveNet 検出器をロード
- */
-async function app() {
-    createDetector();
+async function main() {
+    // モデルの読み込み
+    await loadModel();
+
+    // UIの更新
+    statusElement.textContent = 'モデル読み込み完了！動画を選択してください';
+    fileInput.disabled = false;
+
+    // Video再生後に描画を開始
+    video.addEventListener('play', () => {
+        render();
+    });
 }
 
-app();
+main();

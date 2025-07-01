@@ -11,7 +11,7 @@ let frameCount = 0;
 // 姿勢が悪いと判断された時間
 let badPostureStart = null;
 // 音声ファイルのパス
-let audioFile = "audio/voice_1_badpose.mp3"
+let audioFile = "audio/voice_2_sleepy.mp3"
 // 音声再生中かどうかのフラグ
 let isAudioPlaying = false;
 // 最後に音声を再生した時間
