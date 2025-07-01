@@ -164,16 +164,14 @@ function stopAudio() {
  * @param {*} isHeadDropping 
  */
 function showPostureResult(isHeadDropping) {
-    const now = Date.now();
     // 前傾角度検出で悪い姿勢と判断された場合
     if (isHeadDropping) {
+        // 現在の時刻取得
+        const now = Date.now();
         // 開始時間を更新
         if (!badPostureStart) badPostureStart = now;
-
-        // 開始時間を記録
-        const duration = now - badPostureStart;
         // 10秒以上続いている場合は悪い姿勢と判断
-        if (duration >= BAD_POSTURE_THRESHOLD) {
+        if ((now - badPostureStart) >= BAD_POSTURE_THRESHOLD) {
             updateMessage('姿勢わるくない？', 'bg-red-500', 'text-white');
             playAudio(now);
         } else {
